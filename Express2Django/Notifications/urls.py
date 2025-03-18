@@ -13,4 +13,6 @@ urlpatterns = [
     path('api/delete-notification/<int:notification_id>', views.delete_notification, name='delete_notification'),
     path('api/get-scheduled-notifications', views.get_scheduled_notifications, name='get_notifications'),
     path('api/send-test-notification', views.send_test_notification, name='test_notification'),
+    path('api/remote-log', views.remote_log, name='remote_log'),
+    path('debug/', views.debug, name='debug'),
 ]

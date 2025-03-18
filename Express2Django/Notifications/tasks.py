@@ -12,6 +12,7 @@ from .models import Notification, PushSubscription
 def send_push_notification(notification_id):
     try:
         notification = Notification.objects.get(id=notification_id)
+        print(f"Sending notification {notification_id}: {notification.title}")
         
         # Mark as sent
         notification.sent = True
@@ -46,6 +47,7 @@ def send_push_notification(notification_id):
         for subscription in subscriptions:
             try:
                 subscription_data = subscription.subscription_json
+                print(f"Sending to subscription: {subscription.id}")
                 
                 payload = json.dumps({
                     "title": notification.title,
@@ -67,8 +69,11 @@ def send_push_notification(notification_id):
                     vapid_private_key=settings.VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )
+                print(f"Successfully sent to subscription {subscription.id}")
             except WebPushException as e:
                 print(f"WebPush failed for subscription {subscription.id}: {e}")
+                print(f"Response status: {e.response.status_code if e.response else 'No response'}")
+                print(f"Response body: {e.response.text if e.response else 'No response'}")
                 # If subscription is expired or invalid, remove it
                 if e.response and e.response.status_code in [404, 410]:
                     subscription.delete()

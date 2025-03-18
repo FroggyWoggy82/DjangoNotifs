@@ -7,6 +7,7 @@ from django.conf import settings
 from .models import Notification, PushSubscription
 import json
 import pywebpush
+import time  # Add this import for the timestamp in test notification
 
 # Import Celery task functionality
 from celery import shared_task
@@ -206,16 +207,48 @@ def send_test_notification(request):
 @shared_task
 def send_test_push_notification(subscription):
     try:
-        payload = {
+        # Create payload for the notification
+        payload = json.dumps({
             'title': 'Subscription Confirmed',
             'body': 'You will now receive background notifications!',
             'data': {
                 'dateOfNotification': int(time.time() * 1000)
             }
+        })
+        
+        # VAPID keys should be configured in your settings
+        vapid_private_key = settings.VAPID_PRIVATE_KEY
+        vapid_claims = {
+            "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
         }
         
-        send_web_push(subscription, payload)
+        # Send the push notification directly using pywebpush
+        pywebpush.webpush(
+            subscription_info=subscription,
+            data=payload,
+            vapid_private_key=vapid_private_key,
+            vapid_claims=vapid_claims
+        )
         return True
     except Exception as e:
         print(f"Error sending test notification: {e}")
         return False
+
+
+@csrf_exempt
+def remote_log(request):
+    if request.method == 'POST':
+        try:
+            log_data = json.loads(request.body)
+            
+            # Log to server console
+            print(f"REMOTE LOG [{log_data.get('timestamp')}] [{log_data.get('userAgent')}]: {log_data.get('message')}")
+            if log_data.get('data'):
+                print(f"DATA: {json.dumps(log_data.get('data'))}")
+                
+            # You could also save to a database or file
+            return JsonResponse({'success': True})
+        except Exception as e:
+            print(f"Error in remote logging: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'error': 'Method not allowed'}, status=405)

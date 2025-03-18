@@ -165,6 +165,74 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+// Add setupPushSubscription function for iOS compatibility
+function setupPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    document.getElementById('status').textContent = 'Push notifications not supported in this browser';
+    return Promise.reject(new Error('Push notifications not supported'));
+  }
+  
+  // First, register or get the service worker
+  let swRegistration;
+  return navigator.serviceWorker.ready
+    .then(registration => {
+      swRegistration = registration;
+      console.log('Service Worker is ready:', registration);
+      
+      // Check existing subscription
+      return registration.pushManager.getSubscription();
+    })
+    .then(subscription => {
+      if (subscription) {
+        // We already have a subscription
+        console.log('Existing push subscription found');
+        return subscription;
+      }
+      
+      // Your VAPID public key from settings.py
+      const vapidPublicKey = 'BM29P5O99J9F-DUOyqNwGyurNl5a3ZSkBa0ZlOLR9AylchmgPwHbCeZaFGlEcKoAUOaZvNk5aXa0dHSDS_RT2v0';
+      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      
+      // iOS requires specific options
+      const subscribeOptions = {
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      };
+      
+      // Subscribe to push notifications
+      return swRegistration.pushManager.subscribe(subscribeOptions);
+    })
+    .then(subscription => {
+      console.log('Push subscription details:', JSON.stringify(subscription));
+      
+      // Save subscription to server
+      return fetch('/api/save-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(subscription.toJSON())
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to save subscription on server');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Subscription saved successfully:', data);
+        document.getElementById('status').textContent = 'Push notifications enabled! You will receive notifications even when the app is closed.';
+        return { success: true, subscription };
+      });
+    })
+    .catch(error => {
+      console.error('Push subscription setup failed:', error);
+      document.getElementById('status').textContent = 'Push notification setup failed: ' + error.message;
+      return { success: false, error };
+    });
+}
+
 // Function to initialize scheduled notifications - THIS IS WHAT THE SERVICE WORKER IS LOOKING FOR
 window.initScheduledNotifications = function(registration) {
   console.log('Initializing scheduled notifications');
@@ -466,3 +534,4 @@ if ('serviceWorker' in navigator) {
       document.getElementById('status').textContent = 'Failed to register service worker: ' + error.message;
     });
 }
+    

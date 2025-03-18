@@ -5,14 +5,15 @@ const urlsToCache = [
   '/index.html',
   '/manifest.json',
   '/script.js',
-  '/icon-192x192.png',
-  '/icon-512x512.png'
+  '/static/icons/icon-192x192.png',
+  '/static/icons/icon-512x512.png',
+  '/static/icons/apple-touch-icon.png'
 ];
 
 // Install service worker and cache assets
 self.addEventListener('install', event => {
   console.log('Service Worker installing');
-  self.skipWaiting(); // Take control immediately
+  self.skipWaiting(); // This is important for iOS
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -310,8 +311,9 @@ self.addEventListener('push', event => {
   let notificationData = {
     title: 'New Notification',
     body: 'You have a new notification',
-    icon: '/static/icon-192x192.png',
-    badge: '/static/icon-192x192.png',
+    icon: '/static/icons/icon-192x192.png',
+    badge: '/static/icons/icon-192x192.png',
+    // iOS requires the vibration pattern to be an array of numbers
     vibrate: [100, 50, 100],
     tag: 'push-' + Date.now(),
     renotify: true,
@@ -321,29 +323,22 @@ self.addEventListener('push', event => {
     }
   };
   
-  // Parse data if available
+  // iOS requires waitUntil to be used with showNotification
   if (event.data) {
     try {
       const data = event.data.json();
-      notificationData = {
-        title: data.title || notificationData.title,
-        body: data.body || notificationData.body,
-        icon: '/static/icon-192x192.png',
-        badge: '/static/icon-192x192.png',
-        vibrate: [100, 50, 100],
-        tag: 'push-' + Date.now(),
-        renotify: true,
-        requireInteraction: true,
-        data: {
-          dateOfArrival: Date.now(),
-          ...data.data
-        }
-      };
+      // Update notification data with payload from server
+      notificationData.title = data.title || notificationData.title;
+      notificationData.body = data.body || notificationData.body;
+      if (data.data) {
+        notificationData.data = { ...notificationData.data, ...data.data };
+      }
     } catch (e) {
       console.error('Error parsing push data:', e);
     }
   }
   
+  // This pattern is important for iOS
   event.waitUntil(
     self.registration.showNotification(notificationData.title, notificationData)
   );

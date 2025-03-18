@@ -204,6 +204,7 @@ function setupPushSubscription() {
   
   // iOS detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  console.log('Setting up push subscription, iOS device:', isIOS);
   
   // First, register or get the service worker
   let swRegistration;
@@ -212,17 +213,6 @@ function setupPushSubscription() {
       swRegistration = registration;
       console.log('Service Worker is ready:', registration);
       
-      // For iOS, we need to ensure the service worker is fully activated
-      if (isIOS && registration.active) {
-        console.log('Sending ping to ensure service worker is fully activated');
-        return window.sendMessageToSW({ type: 'PING' })
-          .then(() => registration.pushManager.getSubscription())
-          .catch(() => {
-            console.log('Ping failed, but continuing with subscription process');
-            return registration.pushManager.getSubscription();
-          });
-      }
-      
       // Check existing subscription
       return registration.pushManager.getSubscription();
     })
@@ -230,6 +220,17 @@ function setupPushSubscription() {
       if (subscription) {
         // We already have a subscription
         console.log('Existing push subscription found');
+        
+        // Update the UI
+        const subData = subscription.toJSON();
+        if (subData.keys && subData.keys.p256dh) {
+          subData.keys.p256dh = subData.keys.p256dh.substring(0, 10) + '...';
+        }
+        if (subData.keys && subData.keys.auth) {
+          subData.keys.auth = subData.keys.auth.substring(0, 5) + '...';
+        }
+        document.getElementById('pushSubscription').textContent = JSON.stringify(subData, null, 2);
+        
         return subscription;
       }
       
@@ -243,13 +244,15 @@ function setupPushSubscription() {
         applicationServerKey: convertedVapidKey
       };
       
-      // Subscribe to push notifications
+      console.log('Creating new push subscription with options:', subscribeOptions);
+      
+      // Create a new subscription
       return swRegistration.pushManager.subscribe(subscribeOptions);
     })
     .then(subscription => {
-      console.log('Push subscription details:', JSON.stringify(subscription));
+      console.log('New subscription created:', subscription);
       
-      // Save subscription to server
+      // Save the subscription to the server
       return fetch('/api/save-subscription', {
         method: 'POST',
         headers: {
@@ -260,42 +263,30 @@ function setupPushSubscription() {
       })
       .then(response => {
         if (!response.ok) {
-          throw new Error('Failed to save subscription on server');
+          throw new Error('Failed to save subscription to server');
         }
         return response.json();
       })
-      .then(data => {
-        console.log('Subscription saved successfully:', data);
-        document.getElementById('status').textContent = 'Push notifications enabled! You will receive notifications even when the app is closed.';
+      .then(responseData => {
+        console.log('Subscription saved to server:', responseData);
         
-        // Request an immediate test notification (crucial for iOS)
-        return fetch('/api/send-test-notification', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-          },
-          body: JSON.stringify({
-            subscription: subscription.toJSON(),
-            delay: 2000 // 2 second delay like in Express
-          })
-        })
-        .then(response => {
-          if (!response.ok) {
-            console.warn('Test notification request failed, but subscription was saved');
-          }
-          return { success: true, subscription };
-        })
-        .catch(error => {
-          console.warn('Error requesting test notification:', error);
-          return { success: true, subscription }; // Still return success since subscription was saved
-        });
+        // Update the UI
+        const subData = subscription.toJSON();
+        if (subData.keys && subData.keys.p256dh) {
+          subData.keys.p256dh = subData.keys.p256dh.substring(0, 10) + '...';
+        }
+        if (subData.keys && subData.keys.auth) {
+          subData.keys.auth = subData.keys.auth.substring(0, 5) + '...';
+        }
+        document.getElementById('pushSubscription').textContent = JSON.stringify(subData, null, 2);
+        
+        return subscription;
       });
     })
     .catch(error => {
-      console.error('Push subscription setup failed:', error);
-      document.getElementById('status').textContent = 'Push notification setup failed: ' + error.message;
-      return { success: false, error };
+      console.error('Error setting up push subscription:', error);
+      document.getElementById('pushSubscription').textContent = 'Error: ' + error.message;
+      throw error;
     });
 }
 
@@ -626,8 +617,80 @@ document.getElementById('notifyBtn').addEventListener('click', function() {
 });
 
 // Register service worker
+// Service Worker Registration
+// Fix service worker registration path
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/static/service-worker.js')
+  window.addEventListener('load', function() {
+    console.log('Attempting to register service worker...');
+    // Use absolute path instead of relative path
+    navigator.serviceWorker.register('/static/service-worker.js', {
+      scope: '/'
+    })
+    .then(function(registration) {
+      console.log('Service Worker registered successfully with scope: ', registration.scope);
+      // After successful registration, check for push subscription
+      checkPushSubscription();
+      
+      // For iOS, we need to ensure the service worker is fully activated
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS && registration.active) {
+        console.log('Sending ping to ensure service worker is fully activated');
+        return window.sendMessageToSW({ type: 'PING' })
+          .then(() => {
+            console.log('Service worker responded to ping');
+            return registration;
+          })
+          .catch(() => {
+            console.log('Ping failed, but continuing with subscription process');
+            return registration;
+          });
+      }
+      return registration;
+    })
+    .catch(function(err) {
+      console.error('Service Worker registration failed: ', err);
+    });
+  });
+}
+
+// Function to check push subscription status
+function checkPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    document.getElementById('pushSubscription').textContent = 'Push notifications not supported in this browser';
+    return;
+  }
+  
+  navigator.serviceWorker.ready
+    .then(function(registration) {
+      console.log('Checking for existing push subscription...');
+      return registration.pushManager.getSubscription();
+    })
+    .then(function(subscription) {
+      if (subscription) {
+        console.log('Existing push subscription found');
+        // Show subscription details but truncate the keys for security
+        const subData = subscription.toJSON();
+        if (subData.keys && subData.keys.p256dh) {
+          subData.keys.p256dh = subData.keys.p256dh.substring(0, 10) + '...';
+        }
+        if (subData.keys && subData.keys.auth) {
+          subData.keys.auth = subData.keys.auth.substring(0, 5) + '...';
+        }
+        document.getElementById('pushSubscription').textContent = JSON.stringify(subData, null, 2);
+      } else {
+        console.log('No push subscription found');
+        document.getElementById('pushSubscription').textContent = 'No active subscription';
+      }
+    })
+    .catch(function(error) {
+      console.error('Error checking push subscription:', error);
+      document.getElementById('pushSubscription').textContent = 'Error: ' + error.message;
+    });
+}
+
+// Remove the duplicate service worker registration code below and fix the syntax error
+// The problematic code starts here and needs to be removed:
+/*
     .then(function(registration) {
       console.log('ServiceWorker registration successful with scope: ', registration.scope);
       
@@ -642,5 +705,19 @@ if ('serviceWorker' in navigator) {
       console.error('ServiceWorker registration failed: ', error);
       document.getElementById('status').textContent = 'Failed to register service worker: ' + error.message;
     });
+*/
+
+// Add this code to initialize notifications after service worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.ready.then(registration => {
+    // Make sure window.initScheduledNotifications is defined
+    if (typeof window.initScheduledNotifications === 'function') {
+      window.initScheduledNotifications(registration);
+    } else {
+      console.error('initScheduledNotifications function is not defined');
+    }
+  }).catch(error => {
+    console.error('Error initializing notifications:', error);
+  });
 }
     

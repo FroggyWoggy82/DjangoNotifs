@@ -169,3 +169,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Add CORS settings for iOS
 CORS_ALLOW_ALL_ORIGINS = True  # In production, you'd want to restrict this
 CORS_ALLOW_CREDENTIALS = True
+
+# Add these additional CORS settings
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]

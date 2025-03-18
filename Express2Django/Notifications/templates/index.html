@@ -224,21 +224,26 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
         }
         
         // Test button
-        document.getElementById('debugTestBtn').addEventListener('click', async () => {
+        document.getElementById('debugTestBtn').addEventListener('click', async function() {
             const resultEl = document.getElementById('testResult');
             resultEl.textContent = 'Attempting to send notification...';
             
             if (Notification.permission === 'granted') {
                 if ('serviceWorker' in navigator) {
                     try {
+                        console.log('Notification permission granted, attempting to send test notification');
+                        
                         // First try to get the subscription
                         const registration = await navigator.serviceWorker.ready;
                         const subscription = await registration.pushManager.getSubscription();
                         
                         if (!subscription) {
+                            console.error('No push subscription found');
                             resultEl.textContent = 'No active push subscription found. Please enable notifications first.';
                             return;
                         }
+                        
+                        console.log('Subscription found, sending to server:', subscription.toJSON());
                         
                         // Send the test notification via the server API
                         const response = await fetch('/api/send-test-notification', {
@@ -252,7 +257,9 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
                             })
                         });
                         
+                        console.log('Server response status:', response.status);
                         const data = await response.json();
+                        console.log('Server response data:', data);
                         
                         if (data.success) {
                             resultEl.textContent = 'Test notification sent successfully! Check for notification in a moment.';
@@ -260,8 +267,8 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
                             resultEl.textContent = 'Error from server: ' + (data.error || 'Unknown error');
                         }
                     } catch (err) {
+                        console.error('Error sending test notification:', err);
                         resultEl.textContent = 'Error sending notification: ' + err.message;
-                        console.error('Notification error:', err);
                     }
                 } else {
                     resultEl.textContent = 'Service Worker not available';

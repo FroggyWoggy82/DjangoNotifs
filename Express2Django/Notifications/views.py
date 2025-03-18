@@ -219,22 +219,3 @@ def send_test_push_notification(subscription):
     except Exception as e:
         print(f"Error sending test notification: {e}")
         return False
-
-
-@csrf_exempt
-def remote_log(request):
-    if request.method == 'POST':
-        try:
-            log_data = json.loads(request.body)
-            
-            # Log to server console
-            print(f"REMOTE LOG [{log_data.get('timestamp')}] [{log_data.get('userAgent')}]: {log_data.get('message')}")
-            if log_data.get('data'):
-                print(f"DATA: {json.dumps(log_data.get('data'))}")
-                
-            # You could also save to a database or file
-            return JsonResponse({'success': True})
-        except Exception as e:
-            print(f"Error in remote logging: {str(e)}")
-            return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'error': 'Method not allowed'}, status=405)

@@ -131,6 +131,7 @@
         
         <div class="debug-section">
             <h3>Server Info</h3>
+
             <pre id="serverInfo">
 User Agent: {% if debug_info.user_agent %}{{ debug_info.user_agent }}{% else %}Not available{% endif %}
 HTTPS: {% if debug_info.is_https %}{{ debug_info.is_https }}{% else %}Not available{% endif %}
@@ -223,33 +224,47 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
         }
         
         // Test button
-        document.getElementById('debugTestBtn').addEventListener('click', () => {
+        document.getElementById('debugTestBtn').addEventListener('click', async () => {
             const resultEl = document.getElementById('testResult');
             resultEl.textContent = 'Attempting to send notification...';
             
             if (Notification.permission === 'granted') {
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready.then(registration => {
-                        return registration.showNotification('Debug Test', {
-                            body: 'This is a direct test notification',
-                            icon: '/static/icons/icon-192x192.png',
-                            tag: 'debug-test-' + Date.now()
-                        });
-                    }).then(() => {
-                        resultEl.textContent = 'Test notification sent successfully!';
-                    }).catch(err => {
-                        resultEl.textContent = 'Error sending notification: ' + err.message;
-                    });
-                } else {
                     try {
-                        new Notification('Debug Test', {
-                            body: 'This is a direct test notification',
-                            icon: '/static/icons/icon-192x192.png'
+                        // First try to get the subscription
+                        const registration = await navigator.serviceWorker.ready;
+                        const subscription = await registration.pushManager.getSubscription();
+                        
+                        if (!subscription) {
+                            resultEl.textContent = 'No active push subscription found. Please enable notifications first.';
+                            return;
+                        }
+                        
+                        // Send the test notification via the server API
+                        const response = await fetch('/api/send-test-notification', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                subscription: subscription.toJSON(),
+                                delay: 1000 // 1 second delay
+                            })
                         });
-                        resultEl.textContent = 'Test notification sent via Notification API';
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            resultEl.textContent = 'Test notification sent successfully! Check for notification in a moment.';
+                        } else {
+                            resultEl.textContent = 'Error from server: ' + (data.error || 'Unknown error');
+                        }
                     } catch (err) {
-                        resultEl.textContent = 'Error: ' + err.message;
+                        resultEl.textContent = 'Error sending notification: ' + err.message;
+                        console.error('Notification error:', err);
                     }
+                } else {
+                    resultEl.textContent = 'Service Worker not available';
                 }
             } else {
                 resultEl.textContent = 'Notification permission not granted. Current status: ' + Notification.permission;

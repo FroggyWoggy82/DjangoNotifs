@@ -184,55 +184,64 @@ def send_push_notification(notification_id):
 def send_test_notification(request):
     if request.method == 'POST':
         try:
+            print("Received test notification request")
             data = json.loads(request.body.decode('utf-8'))
             subscription = data.get('subscription')
             delay = data.get('delay', 2000)  # Default 2 seconds like Express
+            
+            print(f"Subscription data: {subscription}")
             
             # For iOS, we need to ensure the delay is not too long
             if delay > 5000:  # Cap at 5 seconds for iOS
                 delay = 5000
                 
             # Schedule the test notification with the specified delay
-            send_test_push_notification.apply_async(
+            print(f"Scheduling test notification with delay: {delay}ms")
+            task = send_test_push_notification.apply_async(
                 args=[subscription],
                 countdown=delay/1000  # Convert milliseconds to seconds
             )
+            print(f"Task scheduled: {task.id}")
             
-            return JsonResponse({'success': True})
+            return JsonResponse({'success': True, 'task_id': task.id})
         except Exception as e:
+            print(f"Error in send_test_notification: {str(e)}")
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-# Add this task to your tasks.py
-@shared_task
-def send_test_push_notification(subscription):
-    try:
-        # Create payload for the notification
-        payload = json.dumps({
-            'title': 'Subscription Confirmed',
-            'body': 'You will now receive background notifications!',
-            'data': {
-                'dateOfNotification': int(time.time() * 1000)
-            }
-        })
-        
-        # VAPID keys should be configured in your settings
-        vapid_private_key = settings.VAPID_PRIVATE_KEY
-        vapid_claims = {
-            "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-        }
-        
-        # Send the push notification directly using pywebpush
-        pywebpush.webpush(
-            subscription_info=subscription,
-            data=payload,
-            vapid_private_key=vapid_private_key,
-            vapid_claims=vapid_claims
-        )
-        return True
-    except Exception as e:
-        print(f"Error sending test notification: {e}")
-        return False
+# Import the task from tasks.py instead of defining it here
+from .tasks import send_test_push_notification
+
+# Remove the duplicate function definition
+# @shared_task
+# def send_test_push_notification(subscription):
+#     try:
+#         # Create payload for the notification
+#         payload = json.dumps({
+#             'title': 'Subscription Confirmed',
+#             'body': 'You will now receive background notifications!',
+#             'data': {
+#                 'dateOfNotification': int(time.time() * 1000)
+#             }
+#         })
+#         
+#         # VAPID keys should be configured in your settings
+#         vapid_private_key = settings.VAPID_PRIVATE_KEY
+#         vapid_claims = {
+#             "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+#         }
+#         
+#         # Send the push notification directly using pywebpush
+#         pywebpush.webpush(
+#             subscription_info=subscription,
+#             data=payload,
+#             vapid_private_key=vapid_private_key,
+#             vapid_claims=vapid_claims
+#         )
+#         return True
+#     except Exception as e:
+#         print(f"Error sending test notification: {e}")
+#         return False
 
 
 @csrf_exempt

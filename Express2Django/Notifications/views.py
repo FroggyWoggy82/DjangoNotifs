@@ -12,7 +12,15 @@ import pywebpush
 from celery import shared_task
 
 def index(request):
-    return render(request, 'index.html')
+    # Add debug information to the context
+    debug_info = {
+        'notification_permission': 'Check in JavaScript',
+        'user_agent': request.META.get('HTTP_USER_AGENT', 'Unknown'),
+        'is_https': request.is_secure(),
+        'host': request.get_host(),
+    }
+    
+    return render(request, 'index.html', {'debug_info': debug_info})
 
 @csrf_exempt
 def get_scheduled_notifications(request):
@@ -231,7 +239,3 @@ def remote_log(request):
             print(f"Error in remote logging: {str(e)}")
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-
-def debug(request):
-    return render(request, 'debug.html')

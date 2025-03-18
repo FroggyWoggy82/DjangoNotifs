@@ -28,6 +28,49 @@
                 padding-bottom: env(safe-area-inset-bottom);
             }
         }
+        
+        /* Add styles for the debug panel */
+        .debug-panel {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        .debug-panel summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+        }
+        .debug-panel pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        .debug-section {
+            margin-bottom: 10px;
+        }
+        .debug-btn {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .debug-btn:hover {
+            background-color: #333;
+        }
+        @media (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+            }
+        }
     </style>
 </head>
 <body>
@@ -82,7 +125,136 @@
         </div>
     </div>
 
+    <!-- Add debug panel at the bottom of the page -->
+    <details class="debug-panel">
+        <summary>Debug Information (Tap to expand)</summary>
+        
+        <div class="debug-section">
+            <h3>Server Info</h3>
+            <pre id="serverInfo">
+User Agent: {{ debug_info.user_agent }}
+HTTPS: {{ debug_info.is_https }}
+Host: {{ debug_info.host }}
+            </pre>
+        </div>
+        
+        <div class="debug-section">
+            <h3>Device Information</h3>
+            <pre id="deviceInfo">Loading...</pre>
+        </div>
+        
+        <div class="debug-section">
+            <h3>Service Worker Status</h3>
+            <pre id="swStatus">Loading...</pre>
+        </div>
+        
+        <div class="debug-section">
+            <h3>Push Subscription</h3>
+            <pre id="pushSubscription">Loading...</pre>
+        </div>
+        
+        <div class="debug-section">
+            <h3>Test Notification</h3>
+            <button id="debugTestBtn" class="debug-btn">Send Direct Test Notification</button>
+            <div id="testResult"></div>
+        </div>
+    </details>
+
     <!-- Include script.js with static template tag -->
     <script src="{% static 'script.js' %}"></script>
+    
+    <!-- Add debug script -->
+    <script>
+        // Display device info
+        document.getElementById('deviceInfo').textContent = JSON.stringify({
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            vendor: navigator.vendor,
+            language: navigator.language,
+            online: navigator.onLine,
+            pushSupported: 'PushManager' in window,
+            notificationSupported: 'Notification' in window,
+            serviceWorkerSupported: 'serviceWorker' in navigator,
+            permission: Notification.permission
+        }, null, 2);
+        
+        // Check service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                document.getElementById('swStatus').textContent = JSON.stringify(
+                    registrations.map(r => ({
+                        scope: r.scope,
+                        active: !!r.active,
+                        installing: !!r.installing,
+                        waiting: !!r.waiting,
+                        updateViaCache: r.updateViaCache
+                    })), null, 2
+                );
+            }).catch(err => {
+                document.getElementById('swStatus').textContent = 'Error: ' + err.message;
+            });
+        } else {
+            document.getElementById('swStatus').textContent = 'Service Workers not supported';
+        }
+        
+        // Check push subscription
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            navigator.serviceWorker.ready.then(registration => {
+                return registration.pushManager.getSubscription();
+            }).then(subscription => {
+                if (subscription) {
+                    // Show subscription details but truncate the keys for security
+                    const subData = subscription.toJSON();
+                    if (subData.keys && subData.keys.p256dh) {
+                        subData.keys.p256dh = subData.keys.p256dh.substring(0, 10) + '...';
+                    }
+                    if (subData.keys && subData.keys.auth) {
+                        subData.keys.auth = subData.keys.auth.substring(0, 5) + '...';
+                    }
+                    document.getElementById('pushSubscription').textContent = JSON.stringify(subData, null, 2);
+                } else {
+                    document.getElementById('pushSubscription').textContent = 'No active subscription';
+                }
+            }).catch(err => {
+                document.getElementById('pushSubscription').textContent = 'Error: ' + err.message;
+            });
+        } else {
+            document.getElementById('pushSubscription').textContent = 'Push not supported';
+        }
+        
+        // Test button
+        document.getElementById('debugTestBtn').addEventListener('click', () => {
+            const resultEl = document.getElementById('testResult');
+            resultEl.textContent = 'Attempting to send notification...';
+            
+            if (Notification.permission === 'granted') {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        return registration.showNotification('Debug Test', {
+                            body: 'This is a direct test notification',
+                            icon: '/static/icons/icon-192x192.png',
+                            tag: 'debug-test-' + Date.now()
+                        });
+                    }).then(() => {
+                        resultEl.textContent = 'Test notification sent successfully!';
+                    }).catch(err => {
+                        resultEl.textContent = 'Error sending notification: ' + err.message;
+                    });
+                } else {
+                    try {
+                        new Notification('Debug Test', {
+                            body: 'This is a direct test notification',
+                            icon: '/static/icons/icon-192x192.png'
+                        });
+                        resultEl.textContent = 'Test notification sent via Notification API';
+                    } catch (err) {
+                        resultEl.textContent = 'Error: ' + err.message;
+                    }
+                }
+            } else {
+                resultEl.textContent = 'Notification permission not granted. Current status: ' + Notification.permission;
+            }
+        });
+    </script>
 </body>
 </html>

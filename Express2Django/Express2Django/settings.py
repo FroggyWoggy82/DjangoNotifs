@@ -28,7 +28,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-b+rnn+&t1@7xg^gjy)fb#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Update ALLOWED_HOSTS to include your Railway domain
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,djangonotifs-production.up.railway.app').split(',')
 
 
 # Application definition
@@ -132,11 +133,18 @@ VAPID_ADMIN_EMAIL = 'kevinguyen022@gmail.com'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# Make sure this points to directories that exist
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
+
+# Add this to create the directory if it doesn't exist
+import os
+os.makedirs(os.path.join(BASE_DIR, "static"), exist_ok=True)
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 

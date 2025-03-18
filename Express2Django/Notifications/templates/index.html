@@ -132,9 +132,9 @@
         <div class="debug-section">
             <h3>Server Info</h3>
             <pre id="serverInfo">
-User Agent: {{ debug_info.user_agent }}
-HTTPS: {{ debug_info.is_https }}
-Host: {{ debug_info.host }}
+User Agent: {% if debug_info.user_agent %}{{ debug_info.user_agent }}{% else %}Not available{% endif %}
+HTTPS: {% if debug_info.is_https %}{{ debug_info.is_https }}{% else %}Not available{% endif %}
+Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% endif %}
             </pre>
         </div>
         

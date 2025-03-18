@@ -14,7 +14,6 @@ from celery import shared_task
 def index(request):
     # Add debug information to the context
     debug_info = {
-        'notification_permission': 'Check in JavaScript',
         'user_agent': request.META.get('HTTP_USER_AGENT', 'Unknown'),
         'is_https': request.is_secure(),
         'host': request.get_host(),

@@ -1,0 +1,67 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification PWA</title>
+    <meta name="description" content="A simple PWA that sends notifications even in the background">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#2196F3">
+</head>
+<body>
+    <h1>Notification PWA</h1>
+    <p>Send and schedule notifications that work even when the app is closed</p>
+    
+    <div id="permissionStatus">
+        Checking notification permission...
+    </div>
+    
+    <button id="notifyBtn">Enable Background Notifications</button>
+    <div id="status"></div>
+    
+    <div>
+        <p><strong>How Background Notifications Work:</strong></p>
+        <ol>
+            <li>Enable notifications when prompted</li>
+            <li>Notifications will work even when this app is closed</li>
+            <li>You can schedule recurring notifications</li>
+            <li>For best results, install this PWA to your home screen</li>
+        </ol>
+    </div>
+    
+    <div>
+        <h2>Schedule Notifications</h2>
+        {% csrf_token %}
+        <div>
+            <label for="notificationTitle">Title:</label>
+            <input type="text" id="notificationTitle" placeholder="Notification Title" value="Scheduled PWA Notification">
+        </div>
+        <div>
+            <label for="notificationMessage">Message:</label>
+            <input type="text" id="notificationMessage" placeholder="Notification Message" value="This is your scheduled notification">
+        </div>
+        <div>
+            <label for="notificationTime">Time:</label>
+            <input type="datetime-local" id="notificationTime">
+        </div>
+        <div>
+            <label for="notificationRepeat">Repeat:</label>
+            <select id="notificationRepeat">
+                <option value="none">None (Once)</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+            </select>
+        </div>
+        <button id="scheduleBtn">Schedule Notification</button>
+        
+        <div>
+            <h3>Scheduled Notifications</h3>
+            <div id="scheduledNotifications"></div>
+        </div>
+    </div>
+
+    <!-- Include script.js with static template tag -->
+    <script src="{% static 'script.js' %}"></script>
+</body>
+</html>

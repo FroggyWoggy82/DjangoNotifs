@@ -1,0 +1,232 @@
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from datetime import datetime, timedelta
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from .models import Notification, PushSubscription
+import json
+import pywebpush
+
+# Import Celery task functionality
+from celery import shared_task
+
+def index(request):
+    return render(request, 'index.html')
+
+@csrf_exempt
+def get_scheduled_notifications(request):
+    # For anonymous users or testing, this can work without login
+    if request.user.is_authenticated:
+        notifications = list(Notification.objects.filter(
+            user=request.user,
+            sent=False
+        ).values())
+    else:
+        notifications = list(Notification.objects.filter(
+            user=None,
+            sent=False
+        ).values())
+    
+    # Convert datetime objects to timestamps for JavaScript
+    for notification in notifications:
+        notification['scheduled_time'] = int(notification['scheduled_time'].timestamp() * 1000)
+    
+    return JsonResponse(notifications, safe=False)
+
+@csrf_exempt
+def delete_notification(request, notification_id):
+    if request.method == 'DELETE':
+        try:
+            notification = Notification.objects.get(id=notification_id)
+            notification.delete()
+            return JsonResponse({"success": True})
+        except Notification.DoesNotExist:
+            return JsonResponse({"error": "Notification not found"}, status=404)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+# Improved view for saving a subscription
+@csrf_exempt
+@require_POST
+def save_subscription(request):
+    try:
+        subscription_data = json.loads(request.body)
+        
+        # Create or update subscription to avoid duplicates
+        subscription, created = PushSubscription.objects.update_or_create(
+            user=request.user if request.user.is_authenticated else None,
+            subscription_json__endpoint=subscription_data.get('endpoint'),
+            defaults={'subscription_json': subscription_data}
+        )
+        
+        return JsonResponse({
+            "success": True, 
+            "id": subscription.id,
+            "created": created
+        })
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+# Enhanced view for scheduling notifications with Celery
+@csrf_exempt
+@require_POST
+def schedule_notification(request):
+    try:
+        data = json.loads(request.body)
+        
+        # Create the notification in your database
+        notification = Notification.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            title=data.get('title'),
+            body=data.get('body'),
+            scheduled_time=datetime.fromtimestamp(int(data.get('scheduledTime')) / 1000),
+            repeat=data.get('repeat', 'none')
+        )
+        
+        # Schedule the push notification using Celery
+        schedule_push_notification_task(
+            notification_id=notification.id,
+            scheduled_time=notification.scheduled_time
+        )
+        
+        return JsonResponse({"success": True, "id": notification.id})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+# Function to schedule a push notification task
+def schedule_push_notification_task(notification_id, scheduled_time):
+    # Schedule the task to be executed at the scheduled time
+    send_push_notification.apply_async(
+        args=[notification_id],
+        eta=scheduled_time
+    )
+
+# Celery task to send push notification
+@shared_task
+def send_push_notification(notification_id):
+    try:
+        notification = Notification.objects.get(id=notification_id)
+        
+        # Mark notification as sent
+        notification.sent = True
+        notification.save()
+        
+        # If this is a recurring notification, schedule the next occurrence
+        if notification.repeat != 'none':
+            if notification.repeat == 'daily':
+                next_time = notification.scheduled_time + timedelta(days=1)
+            elif notification.repeat == 'weekly':
+                next_time = notification.scheduled_time + timedelta(weeks=1)
+                
+            # Create a new notification for the next occurrence
+            new_notification = Notification.objects.create(
+                user=notification.user,
+                title=notification.title,
+                body=notification.body,
+                scheduled_time=next_time,
+                repeat=notification.repeat
+            )
+            
+            # Schedule the next push notification
+            schedule_push_notification_task(new_notification.id, next_time)
+        
+        # Get all subscriptions for this user
+        if notification.user:
+            subscriptions = PushSubscription.objects.filter(user=notification.user)
+        else:
+            subscriptions = PushSubscription.objects.filter(user=None)
+            
+        # Send push notification to all subscriptions
+        for subscription in subscriptions:
+            try:
+                subscription_data = subscription.subscription_json
+                
+                payload = json.dumps({
+                    "title": notification.title,
+                    "body": notification.body,
+                    "data": {
+                        "notificationId": notification.id
+                    }
+                })
+                
+                # VAPID keys should be configured in your settings
+                vapid_private_key = settings.VAPID_PRIVATE_KEY
+                vapid_claims = {
+                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+                }
+                
+                # Send the push notification
+                pywebpush.webpush(
+                    subscription_info=subscription_data,
+                    data=payload,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims=vapid_claims
+                )
+            except Exception as e:
+                print(f"Failed to send to subscription {subscription.id}: {str(e)}")
+                
+    except Notification.DoesNotExist:
+        print(f"Notification {notification_id} not found")
+    except Exception as e:
+        print(f"Error sending push notification: {str(e)}")
+
+@csrf_exempt
+@require_POST
+def send_test_notification(request):
+    try:
+        # Create a test notification that should be sent immediately
+        notification = Notification.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            title="Test Notification",
+            body="This is a test push notification",
+            scheduled_time=datetime.now(),
+            repeat='none'
+        )
+        
+        # Get the user's subscriptions
+        if request.user.is_authenticated:
+            subscriptions = PushSubscription.objects.filter(user=request.user)
+        else:
+            subscriptions = PushSubscription.objects.filter(user=None)
+        
+        if not subscriptions.exists():
+            return JsonResponse({"success": False, "error": "No push subscriptions found"}, status=404)
+        
+        # Send a test notification to all subscriptions
+        for subscription in subscriptions:
+            try:
+                subscription_data = subscription.subscription_json
+                
+                payload = json.dumps({
+                    "title": notification.title,
+                    "body": notification.body,
+                    "data": {
+                        "notificationId": notification.id,
+                        "testId": "test-" + str(datetime.now().timestamp())
+                    }
+                })
+                
+                # VAPID keys should be configured in your settings
+                vapid_private_key = settings.VAPID_PRIVATE_KEY
+                vapid_claims = {
+                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+                }
+                
+                # Send the push notification
+                pywebpush.webpush(
+                    subscription_info=subscription_data,
+                    data=payload,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims=vapid_claims
+                )
+            except Exception as e:
+                print(f"Failed to send test notification: {str(e)}")
+                return JsonResponse({"success": False, "error": str(e)}, status=500)
+        
+        # Mark the notification as sent
+        notification.sent = True
+        notification.save()
+        
+        return JsonResponse({"success": True, "message": "Test notification sent"})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)

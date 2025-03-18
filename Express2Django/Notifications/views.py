@@ -170,63 +170,41 @@ def send_push_notification(notification_id):
     except Exception as e:
         print(f"Error sending push notification: {str(e)}")
 
+# Add this endpoint to your views.py
+
 @csrf_exempt
-@require_POST
 def send_test_notification(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            subscription = data.get('subscription')
+            delay = data.get('delay', 2000)  # Default 2 seconds like Express
+            
+            # Schedule the test notification with the specified delay
+            send_test_push_notification.apply_async(
+                args=[subscription],
+                countdown=delay/1000  # Convert milliseconds to seconds
+            )
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Add this task to your tasks.py
+@shared_task
+def send_test_push_notification(subscription):
     try:
-        # Create a test notification that should be sent immediately
-        notification = Notification.objects.create(
-            user=request.user if request.user.is_authenticated else None,
-            title="Test Notification",
-            body="This is a test push notification",
-            scheduled_time=datetime.now(),
-            repeat='none'
-        )
+        payload = {
+            'title': 'Subscription Confirmed',
+            'body': 'You will now receive background notifications!',
+            'data': {
+                'dateOfNotification': int(time.time() * 1000)
+            }
+        }
         
-        # Get the user's subscriptions
-        if request.user.is_authenticated:
-            subscriptions = PushSubscription.objects.filter(user=request.user)
-        else:
-            subscriptions = PushSubscription.objects.filter(user=None)
-        
-        if not subscriptions.exists():
-            return JsonResponse({"success": False, "error": "No push subscriptions found"}, status=404)
-        
-        # Send a test notification to all subscriptions
-        for subscription in subscriptions:
-            try:
-                subscription_data = subscription.subscription_json
-                
-                payload = json.dumps({
-                    "title": notification.title,
-                    "body": notification.body,
-                    "data": {
-                        "notificationId": notification.id,
-                        "testId": "test-" + str(datetime.now().timestamp())
-                    }
-                })
-                
-                # VAPID keys should be configured in your settings
-                vapid_private_key = settings.VAPID_PRIVATE_KEY
-                vapid_claims = {
-                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-                }
-                
-                # Send the push notification
-                pywebpush.webpush(
-                    subscription_info=subscription_data,
-                    data=payload,
-                    vapid_private_key=vapid_private_key,
-                    vapid_claims=vapid_claims
-                )
-            except Exception as e:
-                print(f"Failed to send test notification: {str(e)}")
-                return JsonResponse({"success": False, "error": str(e)}, status=500)
-        
-        # Mark the notification as sent
-        notification.sent = True
-        notification.save()
-        
-        return JsonResponse({"success": True, "message": "Test notification sent"})
+        send_web_push(subscription, payload)
+        return True
     except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+        print(f"Error sending test notification: {e}")
+        return False

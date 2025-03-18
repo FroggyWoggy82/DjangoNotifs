@@ -165,7 +165,7 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// Add setupPushSubscription function for iOS compatibility
+// Update setupPushSubscription function to send an immediate test notification
 function setupPushSubscription() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     document.getElementById('status').textContent = 'Push notifications not supported in this browser';
@@ -223,7 +223,29 @@ function setupPushSubscription() {
       .then(data => {
         console.log('Subscription saved successfully:', data);
         document.getElementById('status').textContent = 'Push notifications enabled! You will receive notifications even when the app is closed.';
-        return { success: true, subscription };
+        
+        // Request an immediate test notification (crucial for iOS)
+        return fetch('/api/send-test-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: JSON.stringify({
+            subscription: subscription.toJSON(),
+            delay: 2000 // 2 second delay like in Express
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            console.warn('Test notification request failed, but subscription was saved');
+          }
+          return { success: true, subscription };
+        })
+        .catch(error => {
+          console.warn('Error requesting test notification:', error);
+          return { success: true, subscription }; // Still return success since subscription was saved
+        });
       });
     })
     .catch(error => {
@@ -421,21 +443,33 @@ function requestNotificationPermission() {
   
   console.log('Requesting notification permission...');
   
-  // Request permission
+  // Request permission and handle iOS specifics
   return Notification.requestPermission()
     .then(permission => {
       if (permission === 'granted') {
         console.log('Notification permission granted');
         
+        // iOS detection
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
         // Update UI immediately to show success
         const statusElement = document.getElementById('status');
-        statusElement.textContent = 'Notification permission granted! Background notifications are enabled.';
+        statusElement.textContent = 'Notification permission granted! Setting up push subscription...';
         
         // Update the permission status display
         updatePermissionStatus();
         
-        // Return success without push subscription for now
-        return { success: true };
+        // Set up push subscription (important for iOS)
+        return setupPushSubscription().then(result => {
+          if (isIOS) {
+            // Add iOS-specific guidance
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            if (!isStandalone) {
+              statusElement.textContent += ' For best results on iOS, add this app to your home screen.';
+            }
+          }
+          return result;
+        });
       } else {
         console.log('Notification permission denied');
         

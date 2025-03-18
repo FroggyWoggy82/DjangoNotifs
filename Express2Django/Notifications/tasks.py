@@ -2,8 +2,10 @@
 from celery import shared_task
 from datetime import timedelta
 import json
+import time  # Add this import for the test notification function
 from pywebpush import webpush, WebPushException
 from django.conf import settings
+from django.utils import timezone
 from .models import Notification, PushSubscription
 
 @shared_task
@@ -113,3 +115,32 @@ def check_pending_notifications():
         send_push_notification.delay(notification.id)
     
     return f"Checked for pending notifications. Found {due_notifications.count()}"
+
+@shared_task
+def send_test_push_notification(subscription):
+    try:
+        # iOS-optimized payload structure
+        payload = json.dumps({
+            'title': 'Subscription Confirmed',
+            'body': 'You will now receive background notifications!',
+            'data': {
+                'dateOfNotification': int(time.time() * 1000),
+                'url': '/'  # iOS often needs a URL to open
+            }
+        })
+        
+        # VAPID keys should be configured in your settings
+        vapid_claims = {
+            "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+        }
+        
+        # Send the push notification with proper error handling
+        webpush(
+            subscription_info=subscription,
+            data=payload,
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims=vapid_claims
+        )
+        return True
+    except Exception as e:
+        print(f"Error sending test notification: {e}")

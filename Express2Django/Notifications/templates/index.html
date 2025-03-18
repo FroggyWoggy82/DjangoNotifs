@@ -9,9 +9,9 @@
     <link rel="manifest" href="{% static 'manifest.json' %}">
     <meta name="theme-color" content="#2196F3">
     
-    <!-- iOS PWA support -->
+    <!-- iOS PWA support - updated for compatibility -->
     <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- Use the newer standalone display-mode media query instead of the deprecated meta tag -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="Notification PWA">
     
@@ -19,6 +19,16 @@
     <link rel="apple-touch-icon" sizes="152x152" href="{% static 'icons/icon-152x152.png' %}">
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/icon-180x180.png' %}">
     <link rel="apple-touch-icon" sizes="167x167" href="{% static 'icons/icon-167x167.png' %}">
+    
+    <style>
+        /* Add styles for standalone mode */
+        @media (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+    </style>
 </head>
 <body>
     <h1>Notification PWA</h1>

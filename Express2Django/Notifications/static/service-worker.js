@@ -223,88 +223,47 @@ self.addEventListener('notificationclick', event => {
 // Store scheduled notifications
 self.scheduledNotifications = [];
 
-// Handle messages from the client
+// Handle messages from the client - UPDATED for iOS compatibility
 self.addEventListener('message', (event) => {
   console.log('Service worker received message:', event.data);
+  
+  // Check if we have a message port to respond to
+  const hasMessagePort = event.ports && event.ports.length > 0;
   
   // Handle the SETUP_NOTIFICATIONS message from the main thread
   if (event.data && event.data.type === 'SETUP_NOTIFICATIONS') {
     console.log('Setting up notifications in service worker:', event.data.notifications);
-    // Store the notifications or set up timers as needed
-    // This will depend on your service worker implementation
+    self.scheduledNotifications = event.data.notifications || [];
+    
+    // Respond to confirm receipt (important for iOS)
+    if (hasMessagePort) {
+      event.ports[0].postMessage({
+        success: true,
+        message: 'Notifications setup complete',
+        count: self.scheduledNotifications.length
+      });
+    }
+  }
+  
+  // Handle PING message (important for iOS activation)
+  else if (event.data && event.data.type === 'PING') {
+    console.log('Received ping from client');
+    if (hasMessagePort) {
+      event.ports[0].postMessage({
+        success: true,
+        message: 'Service worker is active'
+      });
+    }
   }
 });
 
-// Set up periodic checks for notifications
-function setUpPeriodicChecks() {
-  // Clear any existing interval
-  if (self.notificationCheckInterval) {
-    clearInterval(self.notificationCheckInterval);
-  }
-  
-  // Use setInterval in the service worker to check for notifications
-  self.notificationCheckInterval = setInterval(() => {
-    const now = Date.now();
-    console.log('Service worker checking notifications at:', new Date(now).toLocaleString());
-    
-    if (self.scheduledNotifications && self.scheduledNotifications.length > 0) {
-      console.log('Current notifications in SW:', self.scheduledNotifications.length);
-      
-      self.scheduledNotifications.forEach((notification, index) => {
-        // Check if the notification should be triggered (within a 1-minute window)
-        if (notification.time <= now && notification.time > now - 60000) {
-          console.log('Service worker triggering notification:', notification.title);
-          
-          // Show the notification
-          self.registration.showNotification(notification.title, {
-            body: notification.body,
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png',
-            vibrate: [100, 50, 100],
-            tag: 'scheduled-' + notification.id,
-            renotify: true,
-            requireInteraction: true,
-            data: {
-              notificationId: notification.id,
-              timestamp: now
-            }
-          }).then(() => {
-            console.log('Notification shown successfully');
-          }).catch(err => {
-            console.error('Error showing notification:', err);
-          });
-          
-          // Handle repeating notifications
-          if (notification.repeat !== 'none') {
-            let nextTime;
-            
-            if (notification.repeat === 'daily') {
-              // 24 hours in milliseconds
-              nextTime = notification.time + (24 * 60 * 60 * 1000);
-            } else if (notification.repeat === 'weekly') {
-              // 7 days in milliseconds
-              nextTime = notification.time + (7 * 24 * 60 * 60 * 1000);
-            }
-            
-            // Update the notification time
-            self.scheduledNotifications[index].time = nextTime;
-            self.scheduledNotifications[index].processed = false;
-          } else {
-            // Mark this notification as processed
-            self.scheduledNotifications[index].processed = true;
-          }
-        }
-      });
-      
-      // Remove processed one-time notifications
-      self.scheduledNotifications = self.scheduledNotifications.filter(n => 
-        n.repeat !== 'none' || !n.processed
-      );
-    }
-  }, 5000); // Check every 5 seconds for more reliability
-}
+// REMOVE the duplicate setUpPeriodicChecks function and keep only one version
+// The one at line ~174 should be kept, this one should be removed:
+// function setUpPeriodicChecks() {
+//   ...
+// }
 
-// This is the ONLY push event listener - removed duplicate
+// This is the ONLY push event listener - UPDATED for iOS compatibility
 self.addEventListener('push', event => {
   console.log('Push received:', event);
   
@@ -323,23 +282,35 @@ self.addEventListener('push', event => {
     }
   };
   
-  // iOS requires waitUntil to be used with showNotification
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      // Update notification data with payload from server
-      notificationData.title = data.title || notificationData.title;
-      notificationData.body = data.body || notificationData.body;
-      if (data.data) {
-        notificationData.data = { ...notificationData.data, ...data.data };
+  try {
+    // iOS requires waitUntil to be used with showNotification
+    if (event.data) {
+      try {
+        const data = event.data.json();
+        // Update notification data with payload from server
+        notificationData.title = data.title || notificationData.title;
+        notificationData.body = data.body || notificationData.body;
+        if (data.data) {
+          notificationData.data = { ...notificationData.data, ...data.data };
+        }
+      } catch (e) {
+        console.error('Error parsing push data:', e);
       }
-    } catch (e) {
-      console.error('Error parsing push data:', e);
     }
+    
+    // This pattern is important for iOS
+    event.waitUntil(
+      self.registration.showNotification(notificationData.title, notificationData)
+        .then(() => {
+          console.log('Notification shown successfully');
+          return Promise.resolve(); // Explicit promise resolution for iOS
+        })
+        .catch(err => {
+          console.error('Error showing notification:', err);
+          return Promise.resolve(); // Always resolve to prevent hanging
+        })
+    );
+  } catch (error) {
+    console.error('Error in push event handler:', error);
   }
-  
-  // This pattern is important for iOS
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, notificationData)
-  );
 });

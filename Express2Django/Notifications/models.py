@@ -7,6 +7,8 @@ class PushSubscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     subscription_json = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
+    last_successful_push = models.DateTimeField(null=True, blank=True)  # Track last successful push
+    failed_attempts = models.IntegerField(default=0)  # Track failed attempts
 
     def __str__(self):
         return f"Subscription for {self.user or 'Anonymous'}"

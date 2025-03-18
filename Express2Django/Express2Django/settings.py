@@ -34,6 +34,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,djangonotif
 
 # Application definition
 
+# Add to INSTALLED_APPS
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -41,12 +42,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'Notifications'
+    'Notifications',
+    'corsheaders',  # Add this for iOS compatibility
 ]
 
+# Add to MIDDLEWARE (before CommonMiddleware)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add Whitenoise middleware
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Add this before CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -160,3 +164,8 @@ CELERY_TIMEZONE = TIME_ZONE
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Add CORS settings for iOS
+CORS_ALLOW_ALL_ORIGINS = True  # In production, you'd want to restrict this
+CORS_ALLOW_CREDENTIALS = True

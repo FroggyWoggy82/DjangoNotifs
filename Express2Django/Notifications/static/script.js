@@ -1,6 +1,36 @@
 // Initialize scheduled notifications array
 window.scheduledNotifications = []; // Make it globally accessible
 
+// Add message channel helper for service worker communication
+window.messageChannelTimeout = 5000; // 5 second timeout for message responses
+
+// Helper function for service worker messaging with timeout
+window.sendMessageToSW = function(message) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+      return reject(new Error('No active service worker'));
+    }
+    
+    const messageChannel = new MessageChannel();
+    let timeoutId;
+    
+    // Set up response handler
+    messageChannel.port1.onmessage = (event) => {
+      clearTimeout(timeoutId);
+      resolve(event.data);
+    };
+    
+    // Set timeout to prevent hanging promises
+    timeoutId = setTimeout(() => {
+      messageChannel.port1.close();
+      reject(new Error('Service worker response timeout'));
+    }, window.messageChannelTimeout);
+    
+    // Send the message
+    navigator.serviceWorker.controller.postMessage(message, [messageChannel.port2]);
+  });
+};
+
 // Add sendNotification function
 window.sendNotification = function(title = 'PWA Notification', body = 'This is a notification from your PWA') {
   const statusElement = document.getElementById('status');
@@ -172,12 +202,26 @@ function setupPushSubscription() {
     return Promise.reject(new Error('Push notifications not supported'));
   }
   
+  // iOS detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  
   // First, register or get the service worker
   let swRegistration;
   return navigator.serviceWorker.ready
     .then(registration => {
       swRegistration = registration;
       console.log('Service Worker is ready:', registration);
+      
+      // For iOS, we need to ensure the service worker is fully activated
+      if (isIOS && registration.active) {
+        console.log('Sending ping to ensure service worker is fully activated');
+        return window.sendMessageToSW({ type: 'PING' })
+          .then(() => registration.pushManager.getSubscription())
+          .catch(() => {
+            console.log('Ping failed, but continuing with subscription process');
+            return registration.pushManager.getSubscription();
+          });
+      }
       
       // Check existing subscription
       return registration.pushManager.getSubscription();
@@ -387,7 +431,7 @@ function removeScheduledNotification(index) {
   syncWithServiceWorker();
 }
 
-// Sync with service worker
+// Sync with service worker - UPDATED to use the message channel
 function syncWithServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   
@@ -401,9 +445,19 @@ function syncWithServiceWorker() {
         return cleanNotification;
       });
       
-      registration.active.postMessage({
+      // Use the new message channel approach instead of direct postMessage
+      window.sendMessageToSW({
         type: 'SETUP_NOTIFICATIONS',
         notifications: cleanNotifications
+      }).then(response => {
+        console.log('Service worker acknowledged notification sync:', response);
+      }).catch(err => {
+        console.warn('Service worker message failed, falling back to direct postMessage:', err);
+        // Fallback to direct postMessage if the channel approach fails
+        registration.active.postMessage({
+          type: 'SETUP_NOTIFICATIONS',
+          notifications: cleanNotifications
+        });
       });
     }
   }).catch(err => {
@@ -432,7 +486,7 @@ function updatePermissionStatus() {
   }
 }
 
-// Update the requestNotificationPermission function
+// Update the requestNotificationPermission function with iOS-specific CSS
 function requestNotificationPermission() {
   // Check if browser supports notifications
   if (!('Notification' in window)) {
@@ -442,6 +496,27 @@ function requestNotificationPermission() {
   }
   
   console.log('Requesting notification permission...');
+  
+  // Add iOS standalone mode detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    // Add iOS safe area insets if not already added
+    if (!document.getElementById('ios-standalone-style')) {
+      const style = document.createElement('style');
+      style.id = 'ios-standalone-style';
+      style.textContent = `
+        @media (display-mode: standalone) {
+          body {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
   
   // Request permission and handle iOS specifics
   return Notification.requestPermission()

@@ -180,6 +180,10 @@ def send_test_notification(request):
             subscription = data.get('subscription')
             delay = data.get('delay', 2000)  # Default 2 seconds like Express
             
+            # For iOS, we need to ensure the delay is not too long
+            if delay > 5000:  # Cap at 5 seconds for iOS
+                delay = 5000
+                
             # Schedule the test notification with the specified delay
             send_test_push_notification.apply_async(
                 args=[subscription],

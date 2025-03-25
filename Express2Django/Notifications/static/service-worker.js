@@ -2,9 +2,9 @@
 const CACHE_NAME = 'notification-pwa-v7';
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/manifest.json',
-  '/script.js',
+  '/templates/index.html',
+  '/static/manifest.json',
+  '/static/script.js',
   '/static/icon-192x192.png',
   '/static/icon-512x512.png',
   '/static/icons/apple-touch-icon.png'

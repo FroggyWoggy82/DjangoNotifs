@@ -98,6 +98,8 @@ def schedule_notification(request):
             scheduled_time=scheduled_time,  # Use the timezone-aware datetime variable here
             repeat=data.get('repeat', 'none')
         )
+
+        print(f"Created notification: ID={notification.id}, Title='{notification.title}', Sent={notification.sent}")
         
         # Schedule the push notification using Celery
         schedule_push_notification_task(

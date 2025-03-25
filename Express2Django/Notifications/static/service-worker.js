@@ -144,9 +144,10 @@ async function checkScheduledNotifications() {
         
         // For one-time notifications, delete from server
         if (notification.repeat === 'none') {
+          const idToDelete = notification.id || notification.client_id;
           console.log('Deleting one-time notification:', notification.id);
           try {
-            await fetch(`/api/delete-notification/${notification.id}`, {
+            await fetch(`/api/delete-notification/${idToDelete}`, {
               method: 'DELETE'
             });
           } catch (error) {

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .models import Notification, PushSubscription
+from django.utils import timezone
 import json
 import pywebpush
 import time  # Add this import for the timestamp in test notification

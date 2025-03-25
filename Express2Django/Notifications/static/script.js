@@ -36,8 +36,8 @@ window.sendNotification = function(title = 'PWA Notification', body = 'This is a
   const statusElement = document.getElementById('status');
   const options = {
     body: body,
-    icon: '/static/icons/icon-192x192.png',
-    badge: '/static/icons/icon-192x192.png',
+    icon: '/static/icon-192x192.png',
+    badge: '/static/icon-192x192.png',
     vibrate: [100, 50, 100],
     tag: 'notification-' + Date.now(),
     renotify: true,

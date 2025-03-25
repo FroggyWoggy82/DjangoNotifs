@@ -17,7 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include  # Added 'include' import here
 
+# Add the service worker route
+from Notifications.views import service_worker
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('Notifications.urls')),
+    path('static/service-worker.js', service_worker, name='service_worker'),
 ]

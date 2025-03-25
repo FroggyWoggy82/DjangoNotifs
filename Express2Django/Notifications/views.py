@@ -212,38 +212,6 @@ def send_test_notification(request):
 # Import the task from tasks.py instead of defining it here
 from .tasks import send_test_push_notification
 
-# Remove the duplicate function definition
-# @shared_task
-# def send_test_push_notification(subscription):
-#     try:
-#         # Create payload for the notification
-#         payload = json.dumps({
-#             'title': 'Subscription Confirmed',
-#             'body': 'You will now receive background notifications!',
-#             'data': {
-#                 'dateOfNotification': int(time.time() * 1000)
-#             }
-#         })
-#         
-#         # VAPID keys should be configured in your settings
-#         vapid_private_key = settings.VAPID_PRIVATE_KEY
-#         vapid_claims = {
-#             "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-#         }
-#         
-#         # Send the push notification directly using pywebpush
-#         pywebpush.webpush(
-#             subscription_info=subscription,
-#             data=payload,
-#             vapid_private_key=vapid_private_key,
-#             vapid_claims=vapid_claims
-#         )
-#         return True
-#     except Exception as e:
-#         print(f"Error sending test notification: {e}")
-#         return False
-
-
 @csrf_exempt
 def remote_log(request):
     if request.method == 'POST':
@@ -261,3 +229,12 @@ def remote_log(request):
             print(f"Error in remote logging: {str(e)}")
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+# Add a custom view to serve the service worker with proper headers
+def service_worker(request):
+    response = HttpResponse(
+        open(os.path.join(settings.BASE_DIR, 'Notifications/static/service-worker.js')).read(),
+        content_type='application/javascript'
+    )
+    response['Service-Worker-Allowed'] = '/'
+    return response

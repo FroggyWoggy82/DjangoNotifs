@@ -616,15 +616,14 @@ document.getElementById('notifyBtn').addEventListener('click', function() {
     });
 });
 
-// Register service worker
+
 // Service Worker Registration
-// Fix service worker registration path
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     console.log('Attempting to register service worker...');
-    // Use absolute path instead of relative path
+    // Change the scope to root path for better mobile compatibility
     navigator.serviceWorker.register('/static/service-worker.js', {
-      scope: '/'
+      scope: '/'  // Use root scope instead of /static/
     })
     .then(function(registration) {
       console.log('Service Worker registered successfully with scope: ', registration.scope);
@@ -649,6 +648,13 @@ if ('serviceWorker' in navigator) {
     })
     .catch(function(err) {
       console.error('Service Worker registration failed: ', err);
+      // Add more detailed error information for debugging
+      console.error('Registration error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
+        userAgent: navigator.userAgent
+      });
     });
   });
 }
@@ -687,25 +693,6 @@ function checkPushSubscription() {
       document.getElementById('pushSubscription').textContent = 'Error: ' + error.message;
     });
 }
-
-// Remove the duplicate service worker registration code below and fix the syntax error
-// The problematic code starts here and needs to be removed:
-/*
-    .then(function(registration) {
-      console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      
-      // Make sure window.initScheduledNotifications is defined
-      if (typeof window.initScheduledNotifications === 'function') {
-        window.initScheduledNotifications(registration);
-      } else {
-        console.error('initScheduledNotifications function is not defined');
-      }
-    })
-    .catch(function(error) {
-      console.error('ServiceWorker registration failed: ', error);
-      document.getElementById('status').textContent = 'Failed to register service worker: ' + error.message;
-    });
-*/
 
 // Add this code to initialize notifications after service worker registration
 if ('serviceWorker' in navigator) {

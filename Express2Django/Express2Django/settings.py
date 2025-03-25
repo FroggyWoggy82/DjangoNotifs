@@ -196,3 +196,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True  # Redirects all HTTP requests to HTTPS
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+
+# Add Service Worker header for broader scope control
+SERVICE_WORKER_ALLOWED = '/'

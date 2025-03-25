@@ -2,14 +2,14 @@ import os
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .models import Notification, PushSubscription
 from django.utils import timezone
 import json
 import pywebpush
-import time  # Add this import for the timestamp in test notification
+
 
 # Import Celery task functionality
 from celery import shared_task
@@ -85,20 +85,17 @@ def save_subscription(request):
 def schedule_notification(request):
     try:
         data = json.loads(request.body)
-
         
         # Parse timestamp and make timezone aware
         scheduled_time = datetime.fromtimestamp(int(data.get('scheduledTime')) / 1000)
         scheduled_time = timezone.make_aware(scheduled_time)  # Add this line
-        
-
         
         # Create the notification in your database
         notification = Notification.objects.create(
             user=request.user if request.user.is_authenticated else None,
             title=data.get('title'),
             body=data.get('body'),
-            scheduled_time=datetime.fromtimestamp(int(data.get('scheduledTime')) / 1000),
+            scheduled_time=scheduled_time,  # Use the timezone-aware datetime variable here
             repeat=data.get('repeat', 'none')
         )
         

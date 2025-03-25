@@ -621,7 +621,7 @@ document.getElementById('notifyBtn').addEventListener('click', function() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     console.log('Attempting to register service worker...');
-    navigator.serviceWorker.register('/static/service-worker.js', {
+    navigator.serviceWorker.register('/service-worker.js', {
       scope: '/'  // Use root scope
     })
     .then(function(registration) {

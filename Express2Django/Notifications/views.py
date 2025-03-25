@@ -2,7 +2,7 @@ import os
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .models import Notification, PushSubscription
@@ -25,6 +25,27 @@ def index(request):
 
 @csrf_exempt
 def get_scheduled_notifications(request):
+
+    # In the schedule_notification view
+    try:
+        data = json.loads(request.body)
+        
+        # Parse timestamp and make timezone aware
+        scheduled_time = datetime.fromtimestamp(int(data.get('scheduledTime')) / 1000)
+        scheduled_time = timezone.make_aware(scheduled_time)  # Add this line
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    
+    # Create the notification with the timezone-aware datetime
+    notification = Notification.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        title=data.get('title'),
+        body=data.get('body'),
+        scheduled_time=scheduled_time,  # Use the timezone-aware datetime
+        repeat=data.get('repeat', 'none')
+    )
+    
+    # Rest of your function...
     # For anonymous users or testing, this can work without login
     if request.user.is_authenticated:
         notifications = list(Notification.objects.filter(

@@ -111,10 +111,12 @@ def check_pending_notifications():
     now = timezone.now()
     print(f"Current time: {now}")
 
+    # In check_pending_notifications
     due_notifications = Notification.objects.filter(
         scheduled_time__lte=now,
         sent=False
     )
+    print(f"Due notifications: {[{'id': n.id, 'title': n.title, 'time': n.scheduled_time} for n in due_notifications]}")
     
     for notification in due_notifications:
         send_push_notification.delay(notification.id)

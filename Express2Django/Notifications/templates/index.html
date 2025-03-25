@@ -194,7 +194,7 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
                             
                             // Try to register the service worker if none found
                             navigator.serviceWorker.register('/static/service-worker.js', {
-                                scope: '/static/'  // Match the path where the service worker is served
+                                scope: '/'  // Use root scope for better coverage
                             })
                             .then(reg => {
                                 swStatusElement.textContent = 'Service worker registered! Refresh to see status.';

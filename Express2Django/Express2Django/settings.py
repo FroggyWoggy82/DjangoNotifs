@@ -47,10 +47,12 @@ INSTALLED_APPS = [
 ]
 
 # Add to MIDDLEWARE (before CommonMiddleware)
+# Add this to your middleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Add this before CommonMiddleware
+    'corsheaders.middleware.CorsMiddleware',
+    'Notifications.middleware.ServiceWorkerMiddleware',  # Add this line
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

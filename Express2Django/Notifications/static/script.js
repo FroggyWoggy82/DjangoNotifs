@@ -621,9 +621,8 @@ document.getElementById('notifyBtn').addEventListener('click', function() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     console.log('Attempting to register service worker...');
-    // Register with the correct scope
     navigator.serviceWorker.register('/static/service-worker.js', {
-      scope: '/static/'  // Match the path where the service worker is served
+      scope: '/'  // Use root scope
     })
     .then(function(registration) {
       console.log('Service Worker registered successfully with scope: ', registration.scope);
@@ -648,12 +647,6 @@ if ('serviceWorker' in navigator) {
     })
     .catch(function(err) {
       console.error('Service Worker registration failed: ', err);
-      // Add more detailed error information for debugging
-      console.error('Registration error details:', {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      });
     });
   });
 }

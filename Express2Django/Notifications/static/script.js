@@ -559,6 +559,26 @@ document.getElementById('scheduleBtn').addEventListener('click', function() {
   const repeat = document.getElementById('notificationRepeat').value;
   const statusElement = document.getElementById('status');
   
+  
+  // Add server-side notification saving here
+  fetch('/api/schedule-notification', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      title: title,
+      body: body,
+      scheduledTime: new Date(timeString).getTime(),
+      repeat: repeat
+    })
+  })
+  .then(response => response.json())
+  .then(data => console.log('Notification saved to server:', data))
+  .catch(error => console.error('Error saving to server:', error));
+  
+  // Rest of existing code...
   if (!timeString) {
     statusElement.textContent = 'Please select a valid time';
     return;

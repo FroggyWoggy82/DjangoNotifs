@@ -106,11 +106,11 @@ def schedule_notification_task(notification_id, scheduled_time=None):
 
 @shared_task
 def check_pending_notifications():
-    """
-    Check for notifications that should be sent but haven't been.
-    This is a safeguard in case the scheduled tasks don't run correctly.
-    """
+     
+    print("Running check_pending_notifications")
     now = timezone.now()
+    print(f"Current time: {now}")
+
     due_notifications = Notification.objects.filter(
         scheduled_time__lte=now,
         sent=False

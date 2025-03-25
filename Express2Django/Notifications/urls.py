@@ -14,5 +14,5 @@ urlpatterns = [
     path('api/get-scheduled-notifications', views.get_scheduled_notifications, name='get_notifications'),
     path('api/send-test-notification', views.send_test_notification, name='test_notification'),
     path('api/remote-log', views.remote_log, name='remote_log'),
-    # Removed the service-worker.js path - it should be served as a static file
+    path('service-worker.js', views.service_worker, name='service_worker')
 ]

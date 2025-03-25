@@ -231,10 +231,12 @@ def remote_log(request):
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 # Add a custom view to serve the service worker with proper headers
+# views.py
 def service_worker(request):
-    response = HttpResponse(
-        open(os.path.join(settings.BASE_DIR, 'Notifications/static/service-worker.js')).read(),
-        content_type='application/javascript'
-    )
+    path = os.path.join(settings.BASE_DIR, 'Notifications/static/service-worker.js')
+    with open(path, 'r') as file:
+        content = file.read()
+    
+    response = HttpResponse(content, content_type='application/javascript')
     response['Service-Worker-Allowed'] = '/'
     return response

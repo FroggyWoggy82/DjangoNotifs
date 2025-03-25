@@ -23,5 +23,5 @@ from Notifications.views import service_worker
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('Notifications.urls')),
-    path('static/service-worker.js', service_worker, name='service_worker'),
+    
 ]

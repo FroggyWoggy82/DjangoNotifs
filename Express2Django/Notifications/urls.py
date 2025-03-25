@@ -14,6 +14,6 @@ urlpatterns = [
     path('api/get-scheduled-notifications', views.get_scheduled_notifications, name='get_notifications'),
     path('api/send-test-notification', views.send_test_notification, name='test_notification'),
     path('api/remote-log', views.remote_log, name='remote_log'),
-    # Remove the debug route since it's now integrated in index.html
-    # path('debug/', views.debug, name='debug'),
+    path('static/service-worker.js', service_worker, name='service_worker'),
+   
 ]

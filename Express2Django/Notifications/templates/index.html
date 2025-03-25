@@ -179,26 +179,68 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
             permission: Notification.permission
         }, null, 2);
         
-        // Check service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                document.getElementById('swStatus').textContent = JSON.stringify(
-                    registrations.map(r => ({
-                        scope: r.scope,
-                        active: !!r.active,
-                        installing: !!r.installing,
-                        waiting: !!r.waiting,
-                        updateViaCache: r.updateViaCache
-                    })), null, 2
-                );
-            }).catch(err => {
-                document.getElementById('swStatus').textContent = 'Error: ' + err.message;
-            });
-        } else {
-            document.getElementById('swStatus').textContent = 'Service Workers not supported';
+        // Improved service worker status check with better error handling
+        function checkServiceWorkerStatus() {
+            const swStatusElement = document.getElementById('swStatus');
+            swStatusElement.textContent = 'Checking service worker status...';
+            
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations()
+                    .then(registrations => {
+                        console.log('Service worker registrations:', registrations);
+                        
+                        if (registrations.length === 0) {
+                            swStatusElement.textContent = 'No service worker registrations found. Attempting to register...';
+                            
+                            // Try to register the service worker if none found
+                            navigator.serviceWorker.register('/static/service-worker.js', {
+                                scope: '/'
+                            })
+                            .then(reg => {
+                                swStatusElement.textContent = 'Service worker registered! Refresh to see status.';
+                                console.log('Service worker registered:', reg);
+                            })
+                            .catch(err => {
+                                swStatusElement.textContent = 'Failed to register service worker: ' + err.message;
+                                console.error('Service worker registration failed:', err);
+                            });
+                            
+                            return;
+                        }
+                        
+                        // Format registrations for display
+                        const formattedRegs = registrations.map(r => ({
+                            scope: r.scope,
+                            active: !!r.active,
+                            installing: !!r.installing,
+                            waiting: !!r.waiting,
+                            updateViaCache: r.updateViaCache
+                        }));
+                        
+                        swStatusElement.textContent = JSON.stringify(formattedRegs, null, 2);
+                    })
+                    .catch(err => {
+                        swStatusElement.textContent = 'Error checking service workers: ' + err.message;
+                        console.error('Error checking service workers:', err);
+                    });
+            } else {
+                swStatusElement.textContent = 'Service Workers not supported in this browser';
+            }
         }
         
-        // Check push subscription
+        // Call the function immediately
+        checkServiceWorkerStatus();
+        
+        // And set up a refresh button
+        const swStatusElement = document.getElementById('swStatus');
+        const refreshButton = document.createElement('button');
+        refreshButton.textContent = 'Refresh Status';
+        refreshButton.className = 'debug-btn';
+        refreshButton.style.marginTop = '10px';
+        refreshButton.addEventListener('click', checkServiceWorkerStatus);
+        swStatusElement.parentNode.insertBefore(refreshButton, swStatusElement.nextSibling);
+        
+        // Check push subscription with better error handling
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             navigator.serviceWorker.ready.then(registration => {
                 return registration.pushManager.getSubscription();
@@ -218,6 +260,7 @@ Host: {% if debug_info.host %}{{ debug_info.host }}{% else %}Not available{% end
                 }
             }).catch(err => {
                 document.getElementById('pushSubscription').textContent = 'Error: ' + err.message;
+                console.error('Push subscription error:', err);
             });
         } else {
             document.getElementById('pushSubscription').textContent = 'Push not supported';

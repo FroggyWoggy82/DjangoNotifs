@@ -2,7 +2,8 @@
     "name": "Notification PWA",
     "short_name": "NotifyPWA",
     "description": "A simple PWA that sends notifications",
-    "start_url": "/",
+    "start_url": "/static/",
+    "scope": "/static/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#2196F3",
@@ -35,4 +36,4 @@
         "type": "image/png"
       }
     ]
-  }
+}

@@ -2,7 +2,6 @@
 const CACHE_NAME = 'notification-pwa-v7';
 const urlsToCache = [
   '/',
-  '/templates/index.html',
   '/static/manifest.json',
   '/static/script.js',
   '/static/icon-192x192.png',
@@ -257,11 +256,6 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// REMOVE the duplicate setUpPeriodicChecks function and keep only one version
-// The one at line ~174 should be kept, this one should be removed:
-// function setUpPeriodicChecks() {
-//   ...
-// }
 
 // This is the ONLY push event listener - UPDATED for iOS compatibility
 self.addEventListener('push', event => {
@@ -270,8 +264,8 @@ self.addEventListener('push', event => {
   let notificationData = {
     title: 'New Notification',
     body: 'You have a new notification',
-    icon: '/static/icons/icon-192x192.png',
-    badge: '/static/icons/icon-192x192.png',
+    icon: '/static/icon-192x192.png',
+    badge: '/static/icon-192x192.png',
     // iOS requires the vibration pattern to be an array of numbers
     vibrate: [100, 50, 100],
     tag: 'push-' + Date.now(),

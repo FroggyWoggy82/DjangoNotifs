@@ -1,0 +1,14 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "gunicorn Express2Django.wsgi"
+restartPolicyType = "on-failure"
+
+[deploy.worker]
+startCommand = "celery -A Express2Django worker --loglevel=info"
+restartPolicyType = "on-failure"
+
+[deploy.beat]
+startCommand = "celery -A Express2Django beat --loglevel=info"
+restartPolicyType = "on-failure"

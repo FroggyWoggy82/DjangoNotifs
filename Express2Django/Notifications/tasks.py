@@ -106,12 +106,17 @@ def schedule_notification_task(notification_id, scheduled_time=None):
 
 @shared_task
 def check_pending_notifications():
-     
     print("Running check_pending_notifications")
     now = timezone.now()
     print(f"Current time: {now}")
 
-    # In check_pending_notifications
+    # Get ALL notifications and print their details
+    all_notifications = Notification.objects.all()
+    print(f"All notifications in database:")
+    for n in all_notifications:
+        print(f"ID: {n.id}, Title: {n.title}, Time: {n.scheduled_time}, Sent: {n.sent}")
+
+    # Get due notifications
     due_notifications = Notification.objects.filter(
         scheduled_time__lte=now,
         sent=False
@@ -119,6 +124,7 @@ def check_pending_notifications():
     print(f"Due notifications: {[{'id': n.id, 'title': n.title, 'time': n.scheduled_time} for n in due_notifications]}")
     
     for notification in due_notifications:
+        print(f"Processing notification {notification.id}")
         send_push_notification.delay(notification.id)
     
     return f"Checked for pending notifications. Found {due_notifications.count()}"

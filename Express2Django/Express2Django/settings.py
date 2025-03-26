@@ -131,13 +131,12 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Add to settings.py
 CELERY_BEAT_SCHEDULE = {
     'check-pending-notifications': {
         'task': 'Notifications.tasks.check_pending_notifications',
         'schedule': 60.0,  # Every minute
     },
-}
+}  
 
 # Web Push Notification settings
 VAPID_PRIVATE_KEY = 'HAn8aWLZWt80-NQ1KAQ5POvNc91vW5cuD3sIw0d0C14'

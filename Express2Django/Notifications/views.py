@@ -86,29 +86,26 @@ def schedule_notification(request):
     try:
         data = json.loads(request.body)
         
-        # Parse timestamp and make timezone aware
+        # Parse timestamp and ensure UTC timezone
         scheduled_time = datetime.fromtimestamp(int(data.get('scheduledTime')) / 1000)
-        scheduled_time = timezone.make_aware(scheduled_time)  # Add this line
+        scheduled_time = timezone.make_aware(scheduled_time)
         
-        # Create the notification in your database
+        # Add debug logging
+        print(f"Scheduling notification for: {scheduled_time} UTC")
+        print(f"Current time is: {timezone.now()} UTC")
+        
         notification = Notification.objects.create(
             user=request.user if request.user.is_authenticated else None,
             title=data.get('title'),
             body=data.get('body'),
-            scheduled_time=scheduled_time,  # Use the timezone-aware datetime variable here
+            scheduled_time=scheduled_time,
             repeat=data.get('repeat', 'none')
         )
-
-        print(f"Created notification: ID={notification.id}, Title='{notification.title}', Sent={notification.sent}")
         
-        # Schedule the push notification using Celery
-        schedule_push_notification_task(
-            notification_id=notification.id,
-            scheduled_time=notification.scheduled_time
-        )
-        
+        print(f"Created notification: ID={notification.id}, Time={notification.scheduled_time}, Sent={notification.sent}")
         return JsonResponse({"success": True, "id": notification.id})
     except Exception as e:
+        print(f"Error scheduling notification: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 # Function to schedule a push notification task

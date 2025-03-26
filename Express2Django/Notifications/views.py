@@ -186,6 +186,7 @@ def send_push_notification(notification_id):
         print(f"Error sending push notification: {str(e)}")
 
 # Add this endpoint to your views.py
+# what the fuck
 
 @csrf_exempt
 def send_test_notification(request):

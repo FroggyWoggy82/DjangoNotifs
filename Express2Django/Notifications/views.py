@@ -78,7 +78,9 @@ def save_subscription(request):
         })
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
-
+    
+    
+from .tasks import schedule_notification_task
 # Enhanced view for scheduling notifications with Celery
 @csrf_exempt
 @require_POST
@@ -102,8 +104,13 @@ def schedule_notification(request):
             repeat=data.get('repeat', 'none')
         )
         
+        # Schedule the Celery task directly
+        result = schedule_notification_task.delay(notification.id, scheduled_time)
+        
         print(f"Created notification: ID={notification.id}, Time={notification.scheduled_time}, Sent={notification.sent}")
-        return JsonResponse({"success": True, "id": notification.id})
+        print(f"Scheduled Celery task: {result.id}")
+        
+        return JsonResponse({"success": True, "id": notification.id, "task_id": result.id})
     except Exception as e:
         print(f"Error scheduling notification: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
